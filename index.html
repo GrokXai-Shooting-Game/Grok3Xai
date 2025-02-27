@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Space Shooter</title>
+    <style>
+        canvas { 
+            border: 1px solid black; 
+            background: url('Assets/liminal-background.jpg') no-repeat center center; 
+            background-size: cover; 
+            max-width: 100%; 
+            max-height: 100vh; 
+            display: block; 
+        }
+        body { 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            margin: 0; 
+            overflow: hidden; 
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <img id="bulletImage" src="Assets/bullet.png" style="display:none;">
+    <img id="playerImage" src="Assets/player.png" style="display:none;">
+    <img id="enemyImage" src="Assets/enemy.png" style="display:none;">
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const bulletImg = document.getElementById("bulletImage");
+        const playerImg = document.getElementById("playerImage");
+        const enemyImg = document.getElementById("enemyImage");
+
+        function resizeCanvas() {
+            const maxWidth = window.innerWidth * 0.9;
+            const maxHeight = window.innerHeight * 0.9;
+            const aspectRatio = 4 / 3;
+            let width = maxWidth;
+            let height = width / aspectRatio;
+            if (height > maxHeight) {
+                height = maxHeight;
+                width = height * aspectRatio;
+            }
+            canvas.width = width;
+            canvas.height = height;
+            player.x = canvas.width / 2 - player.width / 2;
+            player.y = canvas.height - 50;
+        }
+
+        const player = {
+            x: 0, y: 0, width: 40, height: 20, speed: 5, dx: 0
+        };
+        const projectiles = [];
+        const projectileSpeed = -10;
+        const enemies = [];
+        const enemySpeed = 2;
+        let spawnTimer = 0;
+        let score = 0;
+        let gameOver = false;
+        let paused = false; // New pause state
+        let leftPressed = false;
+        let rightPressed = false;
+        let spacePressed = false;
+
+        document.addEventListener("keydown", (e) => {
+            if (e.key === "ArrowLeft") leftPressed = true;
+            if (e.key === "ArrowRight") rightPressed = true;
+            if (e.key === " ") spacePressed = true;
+            if (e.key === "p" || e.key === "P") { // Toggle pause with P
+                if (!gameOver) { // Only toggle if not game over
+                    paused = !paused;
+                }
+            }
+        });
+        document.addEventListener("keyup", (e) => {
+            if (e.key === "ArrowLeft") leftPressed = false;
+            if (e.key === "ArrowRight") rightPressed = false;
+            if (e.key === " ") spacePressed = false;
+        });
+
+        window.addEventListener("resize", resizeCanvas);
+        resizeCanvas();
+
+        function spawnEnemy() {
+            enemies.push({ x: Math.random() * (canvas.width - 60), y: -60, width: 60, height: 60 });
+        }
+
+        function shoot() {
+            projectiles.push({ x: player.x + player.width / 2 - 2, y: player.y, width: 4, height: 10 });
+        }
+
+        function update() {
+            if (gameOver || paused) return; // Stop updates if paused or game over
+            if (leftPressed && player.x > 0) player.x -= player.speed;
+            if (rightPressed && player.x < canvas.width - player.width) player.x += player.speed;
+            if (spacePressed) { shoot(); spacePressed = false; }
+            for (let i = projectiles.length - 1; i >= 0; i--) {
+                projectiles[i].y += projectileSpeed;
+                if (projectiles[i].y < 0) projectiles.splice(i, 1);
+            }
+            spawnTimer++;
+            if (spawnTimer % 60 === 0) spawnEnemy();
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                enemies[i].y += enemySpeed;
+                if (enemies[i].y > canvas.height) enemies.splice(i, 1);
+            }
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                if (enemies[i].y + enemies[i].height > player.y &&
+                    enemies[i].x < player.x + player.width &&
+                    enemies[i].x + enemies[i].width > player.x) {
+                    alert(`Game Over! Score: ${score}`);
+                    gameOver = true;
+                    return;
+                }
+            }
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                for (let j = projectiles.length - 1; j >= 0; j--) {
+                    if (projectiles[j].x < enemies[i].x + enemies[i].width &&
+                        projectiles[j].x + projectiles[j].width > enemies[i].x &&
+                        projectiles[j].y < enemies[i].y + enemies[i].height &&
+                        projectiles[j].y + projectiles[j].height > enemies[i].y) {
+                        enemies.splice(i, 1);
+                        projectiles.splice(j, 1);
+                        score += 10;
+                        break;
+                    }
+                }
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (playerImg.complete) {
+                ctx.drawImage(playerImg, player.x, player.y, player.width, player.height);
+            } else {
+                ctx.fillStyle = "white";
+                ctx.fillRect(player.x, player.y, player.width, player.height);
+            }
+            projectiles.forEach(p => {
+                if (bulletImg.complete) {
+                    ctx.drawImage(bulletImg, p.x, p.y, p.width, p.height);
+                } else {
+                    ctx.fillStyle = "red";
+                    ctx.fillRect(p.x, p.y, p.width, p.height);
+                }
+            });
+            enemies.forEach(e => {
+                if (enemyImg.complete) {
+                    ctx.drawImage(enemyImg, e.x, e.y, e.width, e.height);
+                } else {
+                    ctx.fillStyle = "green";
+                    ctx.fillRect(e.x, e.y, e.width, e.height);
+                }
+            });
+            ctx.fillStyle = "white";
+            ctx.font = "20px Arial";
+            ctx.fillText(`Score: ${score}`, 10, 30);
+
+            // Draw pause screen with instructions
+            if (paused) {
+                // Semi-transparent overlay
+                ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // Instructions text
+                ctx.fillStyle = "white";
+                ctx.font = "30px Arial";
+                ctx.textAlign = "center";
+                ctx.fillText("Game Paused", canvas.width / 2, canvas.height / 2 - 50);
+                ctx.font = "20px Arial";
+                ctx.fillText("Controls:", canvas.width / 2, canvas.height / 2);
+                ctx.fillText("Left Arrow - Move Left", canvas.width / 2, canvas.height / 2 + 30);
+                ctx.fillText("Right Arrow - Move Right", canvas.width / 2, canvas.height / 2 + 60);
+                ctx.fillText("Space - Shoot", canvas.width / 2, canvas.height / 2 + 90);
+                ctx.fillText("P - Pause/Unpause", canvas.width / 2, canvas.height / 2 + 120);
+            }
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        gameLoop();
+    </script>
+</body>
+</html>
