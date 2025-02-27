@@ -274,7 +274,7 @@
         function shoot() {
             if (shootCooldown <= 0) {
                 projectiles.push({ x: player.x + player.width / 2 - 2, y: player.y, width: 4, height: 10 });
-                shootSound.currentTime = 0; // Reset to start
+                shootSound.currentTime = 0;
                 shootSound.play();
                 shootCooldown = 5;
             }
@@ -376,10 +376,10 @@
                     ctx.fillRect(e.x, e.y, e.width, e.height);
                 }
             });
-            ctx.fillStyle = "white";
-            ctx.font = "20px Arial";
-            ctx.fillText(`Score: ${score}`, 10, 30);
-            ctx.fillText(`Level: ${level}`, 10, 50);
+            ctx.fillStyle = "#89CFF0"; // Baby blue
+            ctx.font = "bold 24px Arial"; // Bold and bigger
+            ctx.fillText(`Score: ${score}`, 20, 40); // Moved right and down
+            ctx.fillText(`Level: ${level}`, 20, 70);
 
             if (paused) {
                 ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
