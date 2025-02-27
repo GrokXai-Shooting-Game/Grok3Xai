@@ -65,7 +65,7 @@
         }
 
         const player = {
-            x: 0, y: 0, width: 40, height: 20, speed: 5
+            x: 0, y: 0, width: 40, height: 20, speed: 10 // Increased from 5 to 10 for agility
         };
         const projectiles = [];
         const projectileSpeed = -10;
@@ -76,14 +76,13 @@
         let gameOver = false;
         let paused = false;
         let shootCooldown = 0;
+        let touchX = null; // Current touch position
+        let shootHeld = false;
 
         // Keyboard controls
-        let leftPressed = false;
-        let rightPressed = false;
-        let shootHeld = false;
         document.addEventListener("keydown", (e) => {
-            if (e.key === "ArrowLeft") leftPressed = true;
-            if (e.key === "ArrowRight") rightPressed = true;
+            if (e.key === "ArrowLeft") player.x -= player.speed;
+            if (e.key === "ArrowRight") player.x += player.speed;
             if (e.key === " ") shootHeld = true;
             if (e.key === "p" || e.key === "P") {
                 if (!gameOver) {
@@ -91,25 +90,25 @@
                     pauseButton.textContent = paused ? "Resume" : "Pause";
                 }
             }
+            if (player.x < 0) player.x = 0;
+            if (player.x > canvas.width - player.width) player.x = canvas.width - player.width;
         });
         document.addEventListener("keyup", (e) => {
-            if (e.key === "ArrowLeft") leftPressed = false;
-            if (e.key === "ArrowRight") rightPressed = false;
             if (e.key === " ") shootHeld = false;
         });
 
         // Touch controls
-        let touchX = null; // Track touch position
         canvas.addEventListener("touchstart", (e) => {
             e.preventDefault();
             const touch = e.touches[0];
             touchX = touch.clientX - canvas.getBoundingClientRect().left;
-            shootHeld = touchX > canvas.width / 4 && touchX < 3 * canvas.width / 4; // Middle half for shooting
+            shootHeld = touchX > canvas.width / 4 && touchX < 3 * canvas.width / 4; // Middle half shoots
         });
         canvas.addEventListener("touchmove", (e) => {
             e.preventDefault();
             const touch = e.touches[0];
             touchX = touch.clientX - canvas.getBoundingClientRect().left;
+            shootHeld = touchX > canvas.width / 4 && touchX < 3 * canvas.width / 4; // Update shoot state
         });
         canvas.addEventListener("touchend", (e) => {
             e.preventDefault();
@@ -142,27 +141,19 @@
         function shoot() {
             if (shootCooldown <= 0) {
                 projectiles.push({ x: player.x + player.width / 2 - 2, y: player.y, width: 4, height: 10 });
-                shootCooldown = 5; // Faster: ~0.08s at 60fps
+                shootCooldown = 5; // ~0.08s at 60fps
             }
         }
 
         function update() {
             if (gameOver || paused) return;
 
-            // Keyboard movement
-            if (leftPressed && player.x > 0) player.x -= player.speed;
-            if (rightPressed && player.x < canvas.width - player.width) player.x += player.speed;
-
-            // Touch movement
+            // Touch movement: Direct position sync
             if (touchX !== null) {
-                const targetX = touchX - player.width / 2;
-                if (targetX > 0 && targetX < canvas.width - player.width) {
-                    if (Math.abs(player.x - targetX) > player.speed) {
-                        player.x += player.x < targetX ? player.speed : -player.speed;
-                    } else {
-                        player.x = targetX; // Snap to position if close
-                    }
-                }
+                let targetX = touchX - player.width / 2;
+                if (targetX < 0) targetX = 0;
+                if (targetX > canvas.width - player.width) targetX = canvas.width - player.width;
+                player.x = targetX; // Instant move to touch position
             }
 
             // Shooting
