@@ -49,7 +49,7 @@
         }
         #debug {
             position: absolute;
-            top: 80px; /* Moved down to avoid overlap */
+            top: 110px; /* Moved down for tips and life bar */
             left: 10px;
             color: white;
             font-size: 16px;
@@ -58,13 +58,41 @@
         }
         #scoreBox {
             position: absolute;
-            top: 20px; /* Safe from top edge */
-            left: 20px; /* Safe from left edge */
-            background: rgba(0, 0, 0, 0.7); /* Semi-transparent black */
+            top: 50px; /* Moved down for tips */
+            left: 20px;
+            background: rgba(0, 0, 0, 0.7);
             border: 2px solid white;
             padding: 10px;
             z-index: 10;
-            display: none; /* Hidden during intro */
+            display: none; 
+        }
+        #lifeBar {
+            position: absolute;
+            top: 105px; /* Below score box */
+            left: 20px;
+            width: 200px; /* Full width */
+            height: 20px;
+            background: black; /* Empty part */
+            border: 3px solid red; /* Street Fighter red outline */
+            z-index: 10;
+            display: none; 
+        }
+        #lifeFill {
+            width: 100%; /* Starts full */
+            height: 100%;
+            background: yellow; /* Street Fighter yellow fill */
+        }
+        #tipsBox {
+            position: absolute;
+            top: 20px; /* Top-left above score */
+            left: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid white;
+            padding: 10px;
+            color: white;
+            font: bold 16px Arial;
+            z-index: 10;
+            display: none; 
         }
     </style>
 </head>
@@ -77,6 +105,10 @@
         <span id="scoreText">Score: 0</span><br>
         <span id="levelText">Level: 1</span>
     </div>
+    <div id="lifeBar">
+        <div id="lifeFill"></div>
+    </div>
+    <div id="tipsBox"></div>
     <img id="bulletImage" src="Assets/bullet.png" style="display:none;">
     <img id="playerImage" src="Assets/player.png" style="display:none;">
     <img id="enemyImage" src="Assets/enemy.png" style="display:none;">
@@ -96,13 +128,16 @@
         const scoreBox = document.getElementById("scoreBox");
         const scoreText = document.getElementById("scoreText");
         const levelText = document.getElementById("levelText");
+        const lifeBar = document.getElementById("lifeBar");
+        const lifeFill = document.getElementById("lifeFill");
+        const tipsBox = document.getElementById("tipsBox");
         const shootSound = document.getElementById("shootSound");
         const hitSound = document.getElementById("hitSound");
         const gameOverSound = document.getElementById("gameOverSound");
         const levelUpSound = document.getElementById("levelUpSound");
 
-        // Style score box text
-        scoreText.style.color = "#89CFF0"; // Baby blue
+        // Style score and tips
+        scoreText.style.color = "#89CFF0";
         scoreText.style.font = "bold 24px Arial";
         levelText.style.color = "#89CFF0";
         levelText.style.font = "bold 24px Arial";
@@ -124,7 +159,7 @@
         }
 
         const player = {
-            x: 0, y: 0, width: 40, height: 20, speed: 18, velocityX: 0
+            x: 0, y: 0, width: 40, height: 20, speed: 18, velocityX: 0, life: 100 // Max life 100
         };
         const projectiles = [];
         const projectileSpeed = -10;
@@ -141,6 +176,22 @@
         let leftPressed = false;
         let rightPressed = false;
         let gameStarted = false;
+
+        // Gameplay tips
+        const tips = [
+            "Slide or use arrows to dodge enemies!",
+            "Hold center or Space to fire rapidly!",
+            "Score 1,000 points for Level 2!",
+            "Watch your life bar—stay alive!"
+        ];
+        let tipIndex = 0;
+        function updateTips() {
+            if (gameStarted && !gameOver) {
+                tipsBox.textContent = tips[tipIndex];
+                tipIndex = (tipIndex + 1) % tips.length;
+            }
+            setTimeout(updateTips, 5000); // Every 5 seconds
+        }
 
         // Keyboard controls
         document.addEventListener("keydown", (e) => {
@@ -211,6 +262,7 @@
             player.x = canvas.width / 2 - player.width / 2;
             player.y = canvas.height - 50;
             player.velocityX = 0;
+            player.life = 100; // Reset life
             projectiles.length = 0;
             enemies.length = 0;
             score = 0;
@@ -228,6 +280,8 @@
             pauseButton.style.display = "block";
             scoreText.textContent = `Score: ${score}`;
             levelText.textContent = `Level: ${level}`;
+            lifeFill.style.width = "100%";
+            tipsBox.style.display = "block";
             gameLoop();
         }
 
@@ -288,7 +342,10 @@
                 pauseButton.style.display = "block";
                 debugDiv.style.display = "block";
                 scoreBox.style.display = "block";
+                lifeBar.style.display = "block";
+                tipsBox.style.display = "block";
                 document.body.style.background = "transparent";
+                updateTips(); // Start tips cycle
                 gameLoop();
             }, 9000);
         }
@@ -352,12 +409,17 @@
                 if (enemies[i].y + enemies[i].height > player.y &&
                     enemies[i].x < player.x + player.width &&
                     enemies[i].x + enemies[i].width > player.x) {
-                    gameOver = true;
-                    pauseButton.style.display = "none";
-                    restartButton.style.display = "block";
-                    gameOverSound.currentTime = 0;
-                    gameOverSound.play();
-                    return;
+                    player.life -= 25; // Lose 25% life per hit
+                    enemies.splice(i, 1); // Remove enemy after hit
+                    lifeFill.style.width = `${player.life}%`; // Update life bar
+                    if (player.life <= 0) {
+                        gameOver = true;
+                        pauseButton.style.display = "none";
+                        restartButton.style.display = "block";
+                        gameOverSound.currentTime = 0;
+                        gameOverSound.play();
+                    }
+                    break;
                 }
             }
             for (let i = enemies.length - 1; i >= 0; i--) {
