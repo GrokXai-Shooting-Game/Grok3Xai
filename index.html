@@ -10,6 +10,7 @@
             max-width: 100%; 
             max-height: 100vh; 
             display: block; 
+            touch-action: none; /* Prevents default touch behaviors */
         }
         body { 
             display: flex; 
@@ -19,10 +20,22 @@
             margin: 0; 
             overflow: hidden; 
         }
+        #pauseButton {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 10px;
+            font-size: 16px;
+            background-color: #fff;
+            border: 2px solid #000;
+            cursor: pointer;
+            z-index: 10;
+        }
     </style>
 </head>
 <body>
     <canvas id="gameCanvas"></canvas>
+    <button id="pauseButton">Pause</button>
     <img id="bulletImage" src="Assets/bullet.png" style="display:none;">
     <img id="playerImage" src="Assets/player.png" style="display:none;">
     <img id="enemyImage" src="Assets/enemy.png" style="display:none;">
@@ -32,6 +45,7 @@
         const bulletImg = document.getElementById("bulletImage");
         const playerImg = document.getElementById("playerImage");
         const enemyImg = document.getElementById("enemyImage");
+        const pauseButton = document.getElementById("pauseButton");
 
         function resizeCanvas() {
             const maxWidth = window.innerWidth * 0.9;
@@ -59,25 +73,54 @@
         let spawnTimer = 0;
         let score = 0;
         let gameOver = false;
-        let paused = false; // New pause state
+        let paused = false;
         let leftPressed = false;
         let rightPressed = false;
         let spacePressed = false;
 
+        // Keyboard controls
         document.addEventListener("keydown", (e) => {
             if (e.key === "ArrowLeft") leftPressed = true;
             if (e.key === "ArrowRight") rightPressed = true;
             if (e.key === " ") spacePressed = true;
-            if (e.key === "p" || e.key === "P") { // Toggle pause with P
-                if (!gameOver) { // Only toggle if not game over
-                    paused = !paused;
-                }
+            if (e.key === "p" || e.key === "P") {
+                if (!gameOver) paused = !paused;
+                pauseButton.textContent = paused ? "Resume" : "Pause";
             }
         });
         document.addEventListener("keyup", (e) => {
             if (e.key === "ArrowLeft") leftPressed = false;
             if (e.key === "ArrowRight") rightPressed = false;
             if (e.key === " ") spacePressed = false;
+        });
+
+        // Touch controls
+        canvas.addEventListener("touchstart", (e) => {
+            e.preventDefault();
+            const touchX = e.touches[0].clientX - canvas.getBoundingClientRect().left;
+            if (touchX < canvas.width / 3) leftPressed = true; // Left third of screen
+            else if (touchX > 2 * canvas.width / 3) rightPressed = true; // Right third
+            else spacePressed = true; // Middle third for shooting
+        });
+        canvas.addEventListener("touchmove", (e) => {
+            e.preventDefault();
+            const touchX = e.touches[0].clientX - canvas.getBoundingClientRect().left;
+            leftPressed = touchX < canvas.width / 3;
+            rightPressed = touchX > 2 * canvas.width / 3;
+        });
+        canvas.addEventListener("touchend", (e) => {
+            e.preventDefault();
+            leftPressed = false;
+            rightPressed = false;
+            spacePressed = false;
+        });
+
+        // Pause button
+        pauseButton.addEventListener("click", () => {
+            if (!gameOver) {
+                paused = !paused;
+                pauseButton.textContent = paused ? "Resume" : "Pause";
+            }
         });
 
         window.addEventListener("resize", resizeCanvas);
@@ -92,7 +135,7 @@
         }
 
         function update() {
-            if (gameOver || paused) return; // Stop updates if paused or game over
+            if (gameOver || paused) return;
             if (leftPressed && player.x > 0) player.x -= player.speed;
             if (rightPressed && player.x < canvas.width - player.width) player.x += player.speed;
             if (spacePressed) { shoot(); spacePressed = false; }
@@ -158,23 +201,19 @@
             ctx.font = "20px Arial";
             ctx.fillText(`Score: ${score}`, 10, 30);
 
-            // Draw pause screen with instructions
             if (paused) {
-                // Semi-transparent overlay
                 ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-                // Instructions text
                 ctx.fillStyle = "white";
                 ctx.font = "30px Arial";
                 ctx.textAlign = "center";
                 ctx.fillText("Game Paused", canvas.width / 2, canvas.height / 2 - 50);
                 ctx.font = "20px Arial";
                 ctx.fillText("Controls:", canvas.width / 2, canvas.height / 2);
-                ctx.fillText("Left Arrow - Move Left", canvas.width / 2, canvas.height / 2 + 30);
-                ctx.fillText("Right Arrow - Move Right", canvas.width / 2, canvas.height / 2 + 60);
-                ctx.fillText("Space - Shoot", canvas.width / 2, canvas.height / 2 + 90);
-                ctx.fillText("P - Pause/Unpause", canvas.width / 2, canvas.height / 2 + 120);
+                ctx.fillText("Touch Left - Move Left", canvas.width / 2, canvas.height / 2 + 30);
+                ctx.fillText("Touch Right - Move Right", canvas.width / 2, canvas.height / 2 + 60);
+                ctx.fillText("Touch Center - Shoot", canvas.width / 2, canvas.height / 2 + 90);
+                ctx.fillText("Pause Button - Pause/Resume", canvas.width / 2, canvas.height / 2 + 120);
             }
         }
 
