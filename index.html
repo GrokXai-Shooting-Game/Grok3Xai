@@ -49,12 +49,22 @@
         }
         #debug {
             position: absolute;
-            top: 40px;
+            top: 80px; /* Moved down to avoid overlap */
             left: 10px;
             color: white;
             font-size: 16px;
             z-index: 10;
             display: none; 
+        }
+        #scoreBox {
+            position: absolute;
+            top: 20px; /* Safe from top edge */
+            left: 20px; /* Safe from left edge */
+            background: rgba(0, 0, 0, 0.7); /* Semi-transparent black */
+            border: 2px solid white;
+            padding: 10px;
+            z-index: 10;
+            display: none; /* Hidden during intro */
         }
     </style>
 </head>
@@ -63,6 +73,10 @@
     <button id="pauseButton">Pause</button>
     <button id="restartButton">Restart</button>
     <div id="debug">Touch X: N/A</div>
+    <div id="scoreBox">
+        <span id="scoreText">Score: 0</span><br>
+        <span id="levelText">Level: 1</span>
+    </div>
     <img id="bulletImage" src="Assets/bullet.png" style="display:none;">
     <img id="playerImage" src="Assets/player.png" style="display:none;">
     <img id="enemyImage" src="Assets/enemy.png" style="display:none;">
@@ -79,10 +93,19 @@
         const pauseButton = document.getElementById("pauseButton");
         const restartButton = document.getElementById("restartButton");
         const debugDiv = document.getElementById("debug");
+        const scoreBox = document.getElementById("scoreBox");
+        const scoreText = document.getElementById("scoreText");
+        const levelText = document.getElementById("levelText");
         const shootSound = document.getElementById("shootSound");
         const hitSound = document.getElementById("hitSound");
         const gameOverSound = document.getElementById("gameOverSound");
         const levelUpSound = document.getElementById("levelUpSound");
+
+        // Style score box text
+        scoreText.style.color = "#89CFF0"; // Baby blue
+        scoreText.style.font = "bold 24px Arial";
+        levelText.style.color = "#89CFF0";
+        levelText.style.font = "bold 24px Arial";
 
         function resizeCanvas() {
             const maxWidth = window.innerWidth * 0.9;
@@ -203,6 +226,8 @@
             rightPressed = false;
             restartButton.style.display = "none";
             pauseButton.style.display = "block";
+            scoreText.textContent = `Score: ${score}`;
+            levelText.textContent = `Level: ${level}`;
             gameLoop();
         }
 
@@ -262,6 +287,7 @@
                 gameStarted = true;
                 pauseButton.style.display = "block";
                 debugDiv.style.display = "block";
+                scoreBox.style.display = "block";
                 document.body.style.background = "transparent";
                 gameLoop();
             }, 9000);
@@ -349,6 +375,10 @@
                     }
                 }
             }
+
+            // Update score and level text
+            scoreText.textContent = `Score: ${score}`;
+            levelText.textContent = `Level: ${level}`;
         }
 
         function draw() {
@@ -376,10 +406,6 @@
                     ctx.fillRect(e.x, e.y, e.width, e.height);
                 }
             });
-            ctx.fillStyle = "#89CFF0"; // Baby blue
-            ctx.font = "bold 24px Arial"; // Bold and bigger
-            ctx.fillText(`Score: ${score}`, 20, 40); // Moved right and down
-            ctx.fillText(`Level: ${level}`, 20, 70);
 
             if (paused) {
                 ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
