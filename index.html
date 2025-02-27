@@ -32,11 +32,20 @@
             z-index: 10;
             touch-action: manipulation;
         }
+        #debug {
+            position: absolute;
+            top: 40px;
+            left: 10px;
+            color: white;
+            font-size: 16px;
+            z-index: 10;
+        }
     </style>
 </head>
 <body>
     <canvas id="gameCanvas"></canvas>
     <button id="pauseButton">Pause</button>
+    <div id="debug">Touch X: N/A</div>
     <img id="bulletImage" src="Assets/bullet.png" style="display:none;">
     <img id="playerImage" src="Assets/player.png" style="display:none;">
     <img id="enemyImage" src="Assets/enemy.png" style="display:none;">
@@ -47,6 +56,7 @@
         const playerImg = document.getElementById("playerImage");
         const enemyImg = document.getElementById("enemyImage");
         const pauseButton = document.getElementById("pauseButton");
+        const debugDiv = document.getElementById("debug");
 
         function resizeCanvas() {
             const maxWidth = window.innerWidth * 0.9;
@@ -65,7 +75,7 @@
         }
 
         const player = {
-            x: 0, y: 0, width: 40, height: 20, speed: 10 // Increased from 5 to 10 for agility
+            x: 0, y: 0, width: 40, height: 20, speed: 20, velocityX: 0 // Added velocity for desktop
         };
         const projectiles = [];
         const projectileSpeed = -10;
@@ -76,13 +86,15 @@
         let gameOver = false;
         let paused = false;
         let shootCooldown = 0;
-        let touchX = null; // Current touch position
+        let touchX = null;
         let shootHeld = false;
+        let leftPressed = false;
+        let rightPressed = false;
 
         // Keyboard controls
         document.addEventListener("keydown", (e) => {
-            if (e.key === "ArrowLeft") player.x -= player.speed;
-            if (e.key === "ArrowRight") player.x += player.speed;
+            if (e.key === "ArrowLeft") leftPressed = true;
+            if (e.key === "ArrowRight") rightPressed = true;
             if (e.key === " ") shootHeld = true;
             if (e.key === "p" || e.key === "P") {
                 if (!gameOver) {
@@ -90,10 +102,10 @@
                     pauseButton.textContent = paused ? "Resume" : "Pause";
                 }
             }
-            if (player.x < 0) player.x = 0;
-            if (player.x > canvas.width - player.width) player.x = canvas.width - player.width;
         });
         document.addEventListener("keyup", (e) => {
+            if (e.key === "ArrowLeft") leftPressed = false;
+            if (e.key === "ArrowRight") rightPressed = false;
             if (e.key === " ") shootHeld = false;
         });
 
@@ -102,18 +114,21 @@
             e.preventDefault();
             const touch = e.touches[0];
             touchX = touch.clientX - canvas.getBoundingClientRect().left;
-            shootHeld = touchX > canvas.width / 4 && touchX < 3 * canvas.width / 4; // Middle half shoots
+            shootHeld = touchX > canvas.width / 4 && touchX < 3 * canvas.width / 4;
+            debugDiv.textContent = `Touch X: ${touchX.toFixed(0)}`;
         });
         canvas.addEventListener("touchmove", (e) => {
             e.preventDefault();
             const touch = e.touches[0];
             touchX = touch.clientX - canvas.getBoundingClientRect().left;
-            shootHeld = touchX > canvas.width / 4 && touchX < 3 * canvas.width / 4; // Update shoot state
+            shootHeld = touchX > canvas.width / 4 && touchX < 3 * canvas.width / 4;
+            debugDiv.textContent = `Touch X: ${touchX.toFixed(0)}`;
         });
         canvas.addEventListener("touchend", (e) => {
             e.preventDefault();
             touchX = null;
             shootHeld = false;
+            debugDiv.textContent = "Touch X: N/A";
         });
 
         // Pause button
@@ -141,19 +156,27 @@
         function shoot() {
             if (shootCooldown <= 0) {
                 projectiles.push({ x: player.x + player.width / 2 - 2, y: player.y, width: 4, height: 10 });
-                shootCooldown = 5; // ~0.08s at 60fps
+                shootCooldown = 5;
             }
         }
 
         function update() {
             if (gameOver || paused) return;
 
-            // Touch movement: Direct position sync
+            // Desktop movement: Smooth velocity
+            player.velocityX = 0;
+            if (leftPressed) player.velocityX = -player.speed;
+            if (rightPressed) player.velocityX = player.speed;
+            player.x += player.velocityX;
+            if (player.x < 0) player.x = 0;
+            if (player.x > canvas.width - player.width) player.x = canvas.width - player.width;
+
+            // Mobile movement: Instant touch
             if (touchX !== null) {
                 let targetX = touchX - player.width / 2;
                 if (targetX < 0) targetX = 0;
                 if (targetX > canvas.width - player.width) targetX = canvas.width - player.width;
-                player.x = targetX; // Instant move to touch position
+                player.x = targetX;
             }
 
             // Shooting
@@ -231,9 +254,9 @@
                 ctx.fillText("Game Paused", canvas.width / 2, canvas.height / 2 - 50);
                 ctx.font = "20px Arial";
                 ctx.fillText("Controls:", canvas.width / 2, canvas.height / 2);
-                ctx.fillText("Slide - Move Player", canvas.width / 2, canvas.height / 2 + 30);
-                ctx.fillText("Hold Center - Shoot", canvas.width / 2, canvas.height / 2 + 60);
-                ctx.fillText("Tap Pause - Pause/Resume", canvas.width / 2, canvas.height / 2 + 90);
+                ctx.fillText("Slide/Arrows - Move Player", canvas.width / 2, canvas.height / 2 + 30);
+                ctx.fillText("Hold Center/Space - Shoot", canvas.width / 2, canvas.height / 2 + 60);
+                ctx.fillText("Tap Pause/P - Pause/Resume", canvas.width / 2, canvas.height / 2 + 90);
             }
         }
 
