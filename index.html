@@ -49,7 +49,7 @@
         }
         #debug {
             position: absolute;
-            top: 160px; /* Adjusted for lower life bar */
+            top: 160px;
             left: 10px;
             color: white;
             font-size: 16px;
@@ -68,13 +68,13 @@
         }
         #lifeBox {
             position: absolute;
-            top: 135px; /* Moved further down */
+            top: 135px;
             left: 20px;
             z-index: 10;
             display: none; 
         }
         #lifeLabel {
-            color: #FFA500; /* Orange */
+            color: #FFA500;
             font: bold 18px Arial;
             margin-bottom: 5px;
         }
@@ -87,7 +87,7 @@
         #lifeFill {
             width: 100%;
             height: 100%;
-            background: #00FF00; /* Green fill */
+            background: #00FF00;
         }
         #tipsBox {
             position: absolute;
@@ -122,6 +122,10 @@
     <img id="bulletImage" src="Assets/bullet.png" style="display:none;">
     <img id="playerImage" src="Assets/player.png" style="display:none;">
     <img id="enemyImage" src="Assets/enemy.png" style="display:none;">
+    <img id="enemy2Image" src="Assets/enemy2.png" style="display:none;">
+    <img id="purpleBulletImage" src="Assets/purpleBullet.png" style="display:none;">
+    <img id="starImage" src="Assets/star.png" style="display:none;">
+    <img id="starBulletImage" src="Assets/starbullet.png" style="display:none;">
     <audio id="shootSound" src="Assets/shoot.mp3" preload="auto"></audio>
     <audio id="hitSound" src="Assets/hit.mp3" preload="auto"></audio>
     <audio id="gameOverSound" src="Assets/gameover.mp3" preload="auto"></audio>
@@ -132,6 +136,10 @@
         const bulletImg = document.getElementById("bulletImage");
         const playerImg = document.getElementById("playerImage");
         const enemyImg = document.getElementById("enemyImage");
+        const enemy2Img = document.getElementById("enemy2Image");
+        const purpleBulletImg = document.getElementById("purpleBulletImage");
+        const starImg = document.getElementById("starImage");
+        const starBulletImg = document.getElementById("starBulletImage");
         const pauseButton = document.getElementById("pauseButton");
         const restartButton = document.getElementById("restartButton");
         const debugDiv = document.getElementById("debug");
@@ -172,7 +180,11 @@
             x: 0, y: 0, width: 40, height: 20, speed: 18, velocityX: 0, life: 100
         };
         const projectiles = [];
+        const enemyBullets = [];
+        const starBullets = [];
         const projectileSpeed = -10;
+        const enemyBulletSpeed = 8;
+        const starBulletSpeed = 15;
         const enemies = [];
         let enemySpeed = 2;
         let spawnTimer = 0;
@@ -180,7 +192,10 @@
         let level = 1;
         let gameOver = false;
         let paused = false;
+        let transitioning = false; // For Level 2 transition
+        let transitionTimer = 0;
         let shootCooldown = 0;
+        let starExplosion = null;
         let touchX = null;
         let shootHeld = false;
         let leftPressed = false;
@@ -192,7 +207,9 @@
             "Slide or use arrows to dodge enemies!",
             "Hold center or Space to fire rapidly!",
             "Score 1,000 points for Level 2!",
-            "Watch your life bar—stay alive!"
+            "Watch your life bar—stay alive!",
+            "Level 2 enemies split and shoot back!",
+            "After 500 points, shoot the spinning star for a massive explosion!"
         ];
         let tipIndex = 0;
         function updateTips() {
@@ -274,14 +291,19 @@
             player.velocityX = 0;
             player.life = 100;
             projectiles.length = 0;
+            enemyBullets.length = 0;
+            starBullets.length = 0;
             enemies.length = 0;
             score = 0;
             level = 1;
             enemySpeed = 2;
             spawnTimer = 0;
+            transitioning = false;
+            transitionTimer = 0;
             gameOver = false;
             paused = false;
             shootCooldown = 0;
+            starExplosion = null;
             touchX = null;
             shootHeld = false;
             leftPressed = false;
@@ -361,7 +383,46 @@
         }
 
         function spawnEnemy() {
-            enemies.push({ x: Math.random() * (canvas.width - 60), y: -60, width: 60, height: 60 });
+            if (level === 1) {
+                if (score >= 500 && Math.random() < 0.05) { // Star only after 500 points
+                    enemies.push({ 
+                        x: Math.random() * (canvas.width - 40), 
+                        y: -40, 
+                        width: 40, 
+                        height: 40, 
+                        type: "star",
+                        rotation: 0 
+                    });
+                } else {
+                    enemies.push({ 
+                        x: Math.random() * (canvas.width - 60), 
+                        y: -60, 
+                        width: 60, 
+                        height: 60, 
+                        type: "green" 
+                    });
+                }
+            } else {
+                if (Math.random() < 0.5) {
+                    enemies.push({ 
+                        x: Math.random() * (canvas.width - 60), 
+                        y: -60, 
+                        width: 60, 
+                        height: 60, 
+                        type: "green" 
+                    });
+                } else {
+                    enemies.push({ 
+                        x: Math.random() * (canvas.width - 60), 
+                        y: -60, 
+                        width: 60, 
+                        height: 60, 
+                        type: "purple", 
+                        rotation: 0, 
+                        shootTimer: 0 
+                    });
+                }
+            }
         }
 
         function shoot() {
@@ -375,6 +436,14 @@
 
         function update() {
             if (!gameStarted || gameOver || paused) return;
+
+            if (transitioning) {
+                transitionTimer--;
+                if (transitionTimer <= 0) {
+                    transitioning = false;
+                }
+                return; // Pause gameplay during transition
+            }
 
             // Desktop movement
             player.velocityX = 0;
@@ -396,27 +465,89 @@
             if (shootHeld) shoot();
             if (shootCooldown > 0) shootCooldown--;
 
-            // Level progression
-            if (score >= 1000 && level === 1) {
-                level = 2;
-                enemySpeed = 3;
-                enemies.length = 0;
-                levelUpSound.currentTime = 0;
-                levelUpSound.play();
+            // Level progression and speed adjustment
+            if (level === 1) {
+                enemySpeed = 2 * Math.pow(1.1, Math.floor(score / 100));
+                if (score >= 1000) {
+                    level = 2;
+                    enemySpeed = 3;
+                    enemies.length = 0;
+                    transitioning = true;
+                    transitionTimer = 180; // 3 seconds at 60 FPS
+                    levelUpSound.currentTime = 0;
+                    levelUpSound.play();
+                }
             }
 
+            // Update projectiles
             for (let i = projectiles.length - 1; i >= 0; i--) {
                 projectiles[i].y += projectileSpeed;
                 if (projectiles[i].y < 0) projectiles.splice(i, 1);
             }
+
+            // Update enemies
             spawnTimer++;
             if (spawnTimer % 60 === 0) spawnEnemy();
             for (let i = enemies.length - 1; i >= 0; i--) {
                 enemies[i].y += enemySpeed;
+                if (enemies[i].type === "purple") {
+                    enemies[i].rotation += 0.1;
+                    enemies[i].shootTimer++;
+                    if (enemies[i].shootTimer >= 20) {
+                        enemyBullets.push({
+                            x: enemies[i].x + enemies[i].width / 2 - 2,
+                            y: enemies[i].y + enemies[i].height,
+                            width: 4,
+                            height: 8
+                        });
+                        enemies[i].shootTimer = 0;
+                    }
+                } else if (enemies[i].type === "star") {
+                    enemies[i].rotation += 0.1;
+                }
                 if (enemies[i].y > canvas.height) enemies.splice(i, 1);
             }
+
+            // Update enemy bullets
+            for (let i = enemyBullets.length - 1; i >= 0; i--) {
+                enemyBullets[i].y += enemyBulletSpeed;
+                if (enemyBullets[i].y > canvas.height) enemyBullets.splice(i, 1);
+            }
+
+            // Update star explosion and bullets
+            if (starExplosion) {
+                starExplosion.timer--;
+                if (starExplosion.timer % 2 === 0) {
+                    const directions = 16;
+                    let explosionBullets = [];
+                    for (let d = 0; d < directions; d++) {
+                        const angle = (2 * Math.PI / directions) * d;
+                        explosionBullets.push({
+                            x: starExplosion.x,
+                            y: starExplosion.y,
+                            width: 8,
+                            height: 8,
+                            vx: starBulletSpeed * Math.cos(angle),
+                            vy: starBulletSpeed * Math.sin(angle)
+                        });
+                    }
+                    starBullets.push(...explosionBullets);
+                }
+                if (starExplosion.timer <= 0) starExplosion = null;
+            }
+            for (let i = starBullets.length - 1; i >= 0; i--) {
+                starBullets[i].x += starBullets[i].vx;
+                starBullets[i].y += starBullets[i].vy;
+                if (starBullets[i].x < 0 || starBullets[i].x > canvas.width ||
+                    starBullets[i].y < 0 || starBullets[i].y > canvas.height) {
+                    starBullets.splice(i, 1);
+                }
+            }
+
+            // Player collision with enemies
             for (let i = enemies.length - 1; i >= 0; i--) {
-                if (enemies[i].y + enemies[i].height > player.y &&
+                if (enemies[i].type !== "star" && 
+                    enemies[i].y + enemies[i].height > player.y &&
                     enemies[i].x < player.x + player.width &&
                     enemies[i].x + enemies[i].width > player.x) {
                     player.life -= 25;
@@ -432,14 +563,107 @@
                     break;
                 }
             }
+
+            // Player collision with enemy bullets
+            for (let i = enemyBullets.length - 1; i >= 0; i--) {
+                if (enemyBullets[i].y + enemyBullets[i].height > player.y &&
+                    enemyBullets[i].x < player.x + player.width &&
+                    enemyBullets[i].x + enemyBullets[i].width > player.x) {
+                    player.life -= 10;
+                    enemyBullets.splice(i, 1);
+                    lifeFill.style.width = `${player.life}%`;
+                    if (player.life <= 0) {
+                        gameOver = true;
+                        pauseButton.style.display = "none";
+                        restartButton.style.display = "block";
+                        gameOverSound.currentTime = 0;
+                        gameOverSound.play();
+                    }
+                    break;
+                }
+            }
+
+            // Enemy and star collision with player bullets
             for (let i = enemies.length - 1; i >= 0; i--) {
                 for (let j = projectiles.length - 1; j >= 0; j--) {
                     if (projectiles[j].x < enemies[i].x + enemies[i].width &&
                         projectiles[j].x + projectiles[j].width > enemies[i].x &&
                         projectiles[j].y < enemies[i].y + enemies[i].height &&
                         projectiles[j].y + projectiles[j].height > enemies[i].y) {
-                        enemies.splice(i, 1);
+                        if (enemies[i].type === "star") {
+                            starExplosion = {
+                                x: enemies[i].x + enemies[i].width / 2,
+                                y: enemies[i].y + enemies[i].height / 2,
+                                timer: 180
+                            };
+                            enemies.splice(i, 1);
+                            hitSound.currentTime = 0;
+                            hitSound.play();
+                        } else if (enemies[i].type === "purple" && enemies[i].width > 30) {
+                            enemies.push({
+                                x: enemies[i].x - 15,
+                                y: enemies[i].y,
+                                width: enemies[i].width / 2,
+                                height: enemies[i].height / 2,
+                                type: "purple",
+                                rotation: enemies[i].rotation,
+                                shootTimer: 0
+                            });
+                            enemies.push({
+                                x: enemies[i].x + 15,
+                                y: enemies[i].y,
+                                width: enemies[i].width / 2,
+                                height: enemies[i].height / 2,
+                                type: "purple",
+                                rotation: enemies[i].rotation,
+                                shootTimer: 0
+                            });
+                            enemies.splice(i, 1);
+                            hitSound.currentTime = 0;
+                            hitSound.play();
+                            score += 10;
+                        } else {
+                            enemies.splice(i, 1);
+                            hitSound.currentTime = 0;
+                            hitSound.play();
+                            score += 10;
+                        }
                         projectiles.splice(j, 1);
+                        break;
+                    }
+                }
+            }
+
+            // Star bullets hitting enemies
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                for (let j = starBullets.length - 1; j >= 0; j--) {
+                    if (enemies[i].type !== "star" &&
+                        starBullets[j].x < enemies[i].x + enemies[i].width &&
+                        starBullets[j].x + starBullets[j].width > enemies[i].x &&
+                        starBullets[j].y < enemies[i].y + enemies[i].height &&
+                        starBullets[j].y + starBullets[j].height > enemies[i].y) {
+                        if (enemies[i].type === "purple" && enemies[i].width > 30) {
+                            enemies.push({
+                                x: enemies[i].x - 15,
+                                y: enemies[i].y,
+                                width: enemies[i].width / 2,
+                                height: enemies[i].height / 2,
+                                type: "purple",
+                                rotation: enemies[i].rotation,
+                                shootTimer: 0
+                            });
+                            enemies.push({
+                                x: enemies[i].x + 15,
+                                y: enemies[i].y,
+                                width: enemies[i].width / 2,
+                                height: enemies[i].height / 2,
+                                type: "purple",
+                                rotation: enemies[i].rotation,
+                                shootTimer: 0
+                            });
+                        }
+                        enemies.splice(i, 1);
+                        starBullets.splice(j, 1);
                         score += 10;
                         hitSound.currentTime = 0;
                         hitSound.play();
@@ -470,14 +694,50 @@
                     ctx.fillRect(p.x, p.y, p.width, p.height);
                 }
             });
-            enemies.forEach(e => {
-                if (enemyImg.complete) {
-                    ctx.drawImage(enemyImg, e.x, e.y, e.width, e.height);
+            enemyBullets.forEach(b => {
+                if (purpleBulletImg.complete) {
+                    ctx.drawImage(purpleBulletImg, b.x, b.y, b.width, b.height);
                 } else {
-                    ctx.fillStyle = "green";
-                    ctx.fillRect(e.x, e.y, e.width, e.height);
+                    ctx.fillStyle = "purple";
+                    ctx.fillRect(b.x, b.y, b.width, b.height);
                 }
             });
+            starBullets.forEach(b => {
+                if (starBulletImg.complete) {
+                    ctx.drawImage(starBulletImg, b.x, b.y, b.width, b.height);
+                } else {
+                    ctx.fillStyle = "yellow";
+                    ctx.fillRect(b.x, b.y, b.width, b.height);
+                }
+            });
+            enemies.forEach(e => {
+                ctx.save();
+                ctx.translate(e.x + e.width / 2, e.y + e.height / 2);
+                if (e.type === "purple" || e.type === "star") ctx.rotate(e.rotation);
+                if (e.type === "green" && enemyImg.complete) {
+                    ctx.drawImage(enemyImg, -e.width / 2, -e.height / 2, e.width, e.height);
+                } else if (e.type === "purple" && enemy2Img.complete) {
+                    ctx.drawImage(enemy2Img, -e.width / 2, -e.height / 2, e.width, e.height);
+                } else if (e.type === "star" && starImg.complete) {
+                    ctx.drawImage(starImg, -e.width / 2, -e.height / 2, e.width, e.height);
+                } else {
+                    ctx.fillStyle = e.type === "green" ? "green" : e.type === "purple" ? "purple" : "yellow";
+                    ctx.fillRect(-e.width / 2, -e.height / 2, e.width, e.height);
+                }
+                ctx.restore();
+            });
+
+            if (transitioning) {
+                ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = "#89CFF0"; // Baby blue
+                ctx.font = "bold 30px Arial";
+                ctx.textAlign = "center";
+                ctx.fillText("Congratulations Soldier,", canvas.width / 2, canvas.height / 2 - 60);
+                ctx.fillText("but don’t get comfortable.", canvas.width / 2, canvas.height / 2 - 30);
+                ctx.fillText("There is more work to be done", canvas.width / 2, canvas.height / 2);
+                ctx.fillText("let’s go to level 2!", canvas.width / 2, canvas.height / 2 + 30);
+            }
 
             if (paused) {
                 ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
