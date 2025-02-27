@@ -24,13 +24,13 @@
             position: absolute;
             top: 10px;
             right: 10px;
-            padding: 15px; /* Larger for touch */
-            font-size: 18px; /* Readable on mobile */
+            padding: 15px;
+            font-size: 18px;
             background-color: #fff;
             border: 2px solid #000;
             cursor: pointer;
             z-index: 10;
-            touch-action: manipulation; /* Better touch response */
+            touch-action: manipulation;
         }
     </style>
 </head>
@@ -65,7 +65,7 @@
         }
 
         const player = {
-            x: 0, y: 0, width: 40, height: 20, speed: 5, dx: 0
+            x: 0, y: 0, width: 40, height: 20, speed: 5
         };
         const projectiles = [];
         const projectileSpeed = -10;
@@ -75,12 +75,12 @@
         let score = 0;
         let gameOver = false;
         let paused = false;
-        let leftPressed = false;
-        let rightPressed = false;
-        let shootHeld = false; // For continuous shooting
-        let shootCooldown = 0; // Cooldown timer
+        let shootCooldown = 0;
 
         // Keyboard controls
+        let leftPressed = false;
+        let rightPressed = false;
+        let shootHeld = false;
         document.addEventListener("keydown", (e) => {
             if (e.key === "ArrowLeft") leftPressed = true;
             if (e.key === "ArrowRight") rightPressed = true;
@@ -99,40 +99,23 @@
         });
 
         // Touch controls
-        let activeTouches = {};
+        let touchX = null; // Track touch position
         canvas.addEventListener("touchstart", (e) => {
             e.preventDefault();
-            for (let touch of e.touches) {
-                const touchX = touch.clientX - canvas.getBoundingClientRect().left;
-                if (touchX < canvas.width / 3) activeTouches[touch.identifier] = "left";
-                else if (touchX > 2 * canvas.width / 3) activeTouches[touch.identifier] = "right";
-                else activeTouches[touch.identifier] = "shoot";
-            }
-            updateTouchStates();
+            const touch = e.touches[0];
+            touchX = touch.clientX - canvas.getBoundingClientRect().left;
+            shootHeld = touchX > canvas.width / 4 && touchX < 3 * canvas.width / 4; // Middle half for shooting
         });
         canvas.addEventListener("touchmove", (e) => {
             e.preventDefault();
-            for (let touch of e.touches) {
-                const touchX = touch.clientX - canvas.getBoundingClientRect().left;
-                if (touchX < canvas.width / 3) activeTouches[touch.identifier] = "left";
-                else if (touchX > 2 * canvas.width / 3) activeTouches[touch.identifier] = "right";
-                else activeTouches[touch.identifier] = "shoot";
-            }
-            updateTouchStates();
+            const touch = e.touches[0];
+            touchX = touch.clientX - canvas.getBoundingClientRect().left;
         });
         canvas.addEventListener("touchend", (e) => {
             e.preventDefault();
-            for (let touch of e.changedTouches) {
-                delete activeTouches[touch.identifier];
-            }
-            updateTouchStates();
+            touchX = null;
+            shootHeld = false;
         });
-
-        function updateTouchStates() {
-            leftPressed = Object.values(activeTouches).includes("left");
-            rightPressed = Object.values(activeTouches).includes("right");
-            shootHeld = Object.values(activeTouches).includes("shoot");
-        }
 
         // Pause button
         pauseButton.addEventListener("click", () => {
@@ -142,7 +125,7 @@
             }
         });
         pauseButton.addEventListener("touchstart", (e) => {
-            e.preventDefault(); // Prevent scroll/zoom
+            e.preventDefault();
             if (!gameOver) {
                 paused = !paused;
                 pauseButton.textContent = paused ? "Resume" : "Pause";
@@ -159,16 +142,33 @@
         function shoot() {
             if (shootCooldown <= 0) {
                 projectiles.push({ x: player.x + player.width / 2 - 2, y: player.y, width: 4, height: 10 });
-                shootCooldown = 10; // ~0.16s cooldown at 60fps
+                shootCooldown = 5; // Faster: ~0.08s at 60fps
             }
         }
 
         function update() {
             if (gameOver || paused) return;
+
+            // Keyboard movement
             if (leftPressed && player.x > 0) player.x -= player.speed;
             if (rightPressed && player.x < canvas.width - player.width) player.x += player.speed;
+
+            // Touch movement
+            if (touchX !== null) {
+                const targetX = touchX - player.width / 2;
+                if (targetX > 0 && targetX < canvas.width - player.width) {
+                    if (Math.abs(player.x - targetX) > player.speed) {
+                        player.x += player.x < targetX ? player.speed : -player.speed;
+                    } else {
+                        player.x = targetX; // Snap to position if close
+                    }
+                }
+            }
+
+            // Shooting
             if (shootHeld) shoot();
             if (shootCooldown > 0) shootCooldown--;
+
             for (let i = projectiles.length - 1; i >= 0; i--) {
                 projectiles[i].y += projectileSpeed;
                 if (projectiles[i].y < 0) projectiles.splice(i, 1);
@@ -240,10 +240,9 @@
                 ctx.fillText("Game Paused", canvas.width / 2, canvas.height / 2 - 50);
                 ctx.font = "20px Arial";
                 ctx.fillText("Controls:", canvas.width / 2, canvas.height / 2);
-                ctx.fillText("Touch Left - Move Left", canvas.width / 2, canvas.height / 2 + 30);
-                ctx.fillText("Touch Right - Move Right", canvas.width / 2, canvas.height / 2 + 60);
-                ctx.fillText("Hold Center - Shoot", canvas.width / 2, canvas.height / 2 + 90);
-                ctx.fillText("Tap Pause Button - Pause/Resume", canvas.width / 2, canvas.height / 2 + 120);
+                ctx.fillText("Slide - Move Player", canvas.width / 2, canvas.height / 2 + 30);
+                ctx.fillText("Hold Center - Shoot", canvas.width / 2, canvas.height / 2 + 60);
+                ctx.fillText("Tap Pause - Pause/Resume", canvas.width / 2, canvas.height / 2 + 90);
             }
         }
 
