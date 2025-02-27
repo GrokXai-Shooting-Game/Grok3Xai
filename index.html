@@ -49,7 +49,7 @@
         }
         #debug {
             position: absolute;
-            top: 110px; /* Moved down for tips and life bar */
+            top: 140px; /* Moved down for life label */
             left: 10px;
             color: white;
             font-size: 16px;
@@ -58,7 +58,7 @@
         }
         #scoreBox {
             position: absolute;
-            top: 50px; /* Moved down for tips */
+            top: 50px;
             left: 20px;
             background: rgba(0, 0, 0, 0.7);
             border: 2px solid white;
@@ -66,25 +66,32 @@
             z-index: 10;
             display: none; 
         }
-        #lifeBar {
+        #lifeBox {
             position: absolute;
-            top: 105px; /* Below score box */
+            top: 115px; /* Lowered with gap from score box */
             left: 20px;
-            width: 200px; /* Full width */
-            height: 20px;
-            background: black; /* Empty part */
-            border: 3px solid red; /* Street Fighter red outline */
             z-index: 10;
             display: none; 
         }
+        #lifeLabel {
+            color: white;
+            font: bold 18px Arial;
+            margin-bottom: 5px;
+        }
+        #lifeBar {
+            width: 200px;
+            height: 20px;
+            background: black;
+            border: 3px solid red;
+        }
         #lifeFill {
-            width: 100%; /* Starts full */
+            width: 100%;
             height: 100%;
-            background: yellow; /* Street Fighter yellow fill */
+            background: #00FF00; /* Green fill */
         }
         #tipsBox {
             position: absolute;
-            top: 20px; /* Top-left above score */
+            top: 20px;
             left: 20px;
             background: rgba(0, 0, 0, 0.7);
             border: 2px solid white;
@@ -105,8 +112,11 @@
         <span id="scoreText">Score: 0</span><br>
         <span id="levelText">Level: 1</span>
     </div>
-    <div id="lifeBar">
-        <div id="lifeFill"></div>
+    <div id="lifeBox">
+        <div id="lifeLabel">Your Life Amount</div>
+        <div id="lifeBar">
+            <div id="lifeFill"></div>
+        </div>
     </div>
     <div id="tipsBox"></div>
     <img id="bulletImage" src="Assets/bullet.png" style="display:none;">
@@ -128,7 +138,7 @@
         const scoreBox = document.getElementById("scoreBox");
         const scoreText = document.getElementById("scoreText");
         const levelText = document.getElementById("levelText");
-        const lifeBar = document.getElementById("lifeBar");
+        const lifeBox = document.getElementById("lifeBox");
         const lifeFill = document.getElementById("lifeFill");
         const tipsBox = document.getElementById("tipsBox");
         const shootSound = document.getElementById("shootSound");
@@ -136,7 +146,7 @@
         const gameOverSound = document.getElementById("gameOverSound");
         const levelUpSound = document.getElementById("levelUpSound");
 
-        // Style score and tips
+        // Style score box text
         scoreText.style.color = "#89CFF0";
         scoreText.style.font = "bold 24px Arial";
         levelText.style.color = "#89CFF0";
@@ -159,7 +169,7 @@
         }
 
         const player = {
-            x: 0, y: 0, width: 40, height: 20, speed: 18, velocityX: 0, life: 100 // Max life 100
+            x: 0, y: 0, width: 40, height: 20, speed: 18, velocityX: 0, life: 100
         };
         const projectiles = [];
         const projectileSpeed = -10;
@@ -190,7 +200,7 @@
                 tipsBox.textContent = tips[tipIndex];
                 tipIndex = (tipIndex + 1) % tips.length;
             }
-            setTimeout(updateTips, 5000); // Every 5 seconds
+            setTimeout(updateTips, 5000);
         }
 
         // Keyboard controls
@@ -262,7 +272,7 @@
             player.x = canvas.width / 2 - player.width / 2;
             player.y = canvas.height - 50;
             player.velocityX = 0;
-            player.life = 100; // Reset life
+            player.life = 100;
             projectiles.length = 0;
             enemies.length = 0;
             score = 0;
@@ -342,10 +352,10 @@
                 pauseButton.style.display = "block";
                 debugDiv.style.display = "block";
                 scoreBox.style.display = "block";
-                lifeBar.style.display = "block";
+                lifeBox.style.display = "block";
                 tipsBox.style.display = "block";
                 document.body.style.background = "transparent";
-                updateTips(); // Start tips cycle
+                updateTips();
                 gameLoop();
             }, 9000);
         }
@@ -409,9 +419,9 @@
                 if (enemies[i].y + enemies[i].height > player.y &&
                     enemies[i].x < player.x + player.width &&
                     enemies[i].x + enemies[i].width > player.x) {
-                    player.life -= 25; // Lose 25% life per hit
-                    enemies.splice(i, 1); // Remove enemy after hit
-                    lifeFill.style.width = `${player.life}%`; // Update life bar
+                    player.life -= 25;
+                    enemies.splice(i, 1);
+                    lifeFill.style.width = `${player.life}%`;
                     if (player.life <= 0) {
                         gameOver = true;
                         pauseButton.style.display = "none";
